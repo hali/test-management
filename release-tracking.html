@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Release Tracker</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --muted:#9aa4af; --text:#e8eef2; --accent:#7bd389; --accent-2:#5aa2f6; --danger:#f06a6a; --border:#2a2f3a; --input:#1f2430; }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:var(--bg);color:var(--text)}
+  h1{margin:0 0 16px;font-size:20px;font-weight:700}
+  .app{max-width:none;width: calc(100% - 40px);margin:0 auto;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  label{font-size:13px;color:var(--muted)}
+  input[type="text"],textarea{width:100%;background:var(--input);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;outline:none}
+  input[type="text"]:focus,textarea:focus{border-color:var(--accent-2)}
+  .field{flex:1 1 320px}
+  .controls{display:flex;gap:10px;align-items:end}
+  button{border:1px solid var(--border);background:#1d2330;color:var(--text);padding:10px 14px;border-radius:10px;cursor:pointer;font-size:14px;transition:transform .02s ease,border-color .2s ease}
+  button.primary{background:var(--accent-2);border-color:transparent;color:#fff}
+  button.success{background:var(--accent);border-color:transparent;color:#0b1a0f}
+  button.danger{background:var(--danger);border-color:transparent;color:#1b0000}
+  button:active{transform:translateY(1px)}
+  .table-wrap{margin-top:18px;overflow:auto;border:1px solid var(--border);border-radius:12px}
+  table{width:100%;border-collapse:separate;border-spacing:0;min-width:980px;background:#121621;table-layout:fixed}
+  thead th{position:sticky;top:0;z-index:1;background:#161b27;color:#cfd8e3;text-align:left;font-weight:600;padding:12px;border-bottom:1px solid var(--border);font-size:13px}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:14px}
+  tbody tr:hover td{background:#141a26}
+  .service-cell{display:block}
+  .service-name{width:100%;background:transparent;border:none;color:var(--text);font-size:14px;padding:6px 8px;border-radius:8px;outline:none}
+  .service-name:focus{background:#141a20;border:1px solid var(--accent-2)}
+  .checkbox{text-align:center}
+  .checkbox input{width:18px;height:18px}
+  .notes{margin-top:16px}
+  .notes textarea{height:140px;resize:vertical}
+  .footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+  .hint{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+  <div class="app">
+    <h1>Release Tracker</h1>
+
+    <div class="row" style="margin-bottom:10px;">
+      <div class="field">
+        <label for="releaseName">Release name</label>
+        <input id="releaseName" type="text" placeholder="e.g. 2025.08.15 Platform Release"/>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="serviceInput">Add service</label>
+        <input id="serviceInput" type="text" placeholder="e.g. user-profile-service"/>
+      </div>
+      <div class="controls">
+        <button id="addServiceBtn" class="primary">Add service</button>
+        <button id="clearAllBtn" class="danger" title="Remove all services">Clear all</button>
+        <button id="loadBtn">Load from file</button>
+        <button id="saveBtn" class="success">Save to .txt</button>
+        <input id="fileInput" type="file" accept=".txt,text/plain" style="display:none"/>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="servicesTable" aria-label="Services release stages">
+        <thead>
+          <tr>
+            <th style="width:350px;">Service</th>
+            <th>TST signed off</th>
+            <th>RC cut</th>
+            <th>STG deploy</th>
+            <th>STG signed off</th>
+            <th>PRD deploy</th>
+            <th>Done</th>
+            <th style="min-width:120px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="notes">
+      <label for="notes">Notes</label>
+      <textarea id="notes" placeholder="Anything odd, risky, or worth remembering?"></textarea>
+    </div>
+
+    <div class="footer">
+      <div class="hint">Tip: Press <strong>Enter</strong> to add a service quickly.</div>
+      <div></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const STAGES = [
+    "TST signed off",
+    "RC cut",
+    "STG deploy",
+    "STG signed off",
+    "PRD deploy",
+    "Done"
+  ];
+
+  const releaseNameEl = document.getElementById('releaseName');
+  const serviceInputEl = document.getElementById('serviceInput');
+  const addServiceBtn = document.getElementById('addServiceBtn');
+  const clearAllBtn = document.getElementById('clearAllBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const loadBtn = document.getElementById('loadBtn');
+  const fileInput = document.getElementById('fileInput');
+  const tbody = document.getElementById('tbody');
+
+  // ---- Utilities ----
+  function formatTs(ts) {
+    const d = new Date(ts);
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yyyy = d.getFullYear();
+    const h = d.getHours();               // no leading zero
+    const m = String(d.getMinutes()).padStart(2,'0'); // zero-pad minutes
+    return `${dd}/${mm}/${yyyy} ${h}:${m}`;
+  }
+  function parseDateStr(s) {
+    // Expect DD/MM/YYYY h:m
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/);
+    if (!m) return NaN;
+    const [_, dd, MM, yyyy, hh, mm] = m;
+    return new Date(Number(yyyy), Number(MM)-1, Number(dd), Number(hh), Number(mm), 0, 0).getTime();
+  }
+
+  function makeCheckbox(stage, serviceName='') {
+    const td = document.createElement('td');
+    td.className = 'checkbox';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.setAttribute('aria-label', `${stage} complete for ${serviceName || 'this service'}`);
+    cb.addEventListener('change', () => {
+      if (cb.checked) {
+        cb.dataset.ts = String(Date.now());
+      } else {
+        delete cb.dataset.ts;
+      }
+    });
+    td.appendChild(cb);
+    return td;
+  }
+
+  // Row: [Service][stage1]..[stage6][Actions]
+  function makeRow(serviceName='') {
+    const tr = document.createElement('tr');
+
+    const tdService = document.createElement('td');
+    tdService.className = 'service-cell';
+    const input = document.createElement('input');
+    input.className = 'service-name';
+    input.type = 'text';
+    input.value = serviceName;
+    input.placeholder = 'service-name';
+    input.setAttribute('aria-label', 'Service name');
+    tdService.appendChild(input);
+    tr.appendChild(tdService);
+
+    STAGES.forEach(stage => tr.appendChild(makeCheckbox(stage, serviceName)));
+
+    const tdActions = document.createElement('td');
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'danger';
+    removeBtn.type = 'button';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => tr.remove());
+    tdActions.appendChild(removeBtn);
+    tr.appendChild(tdActions);
+
+    return tr;
+  }
+
+  // ---- Add / Clear ----
+  function addService() {
+    const name = serviceInputEl.value.trim();
+    if (!name) return;
+    tbody.appendChild(makeRow(name));
+    serviceInputEl.value = '';
+    serviceInputEl.focus();
+  }
+  addServiceBtn.addEventListener('click', addService);
+  serviceInputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); addService(); }
+  });
+  clearAllBtn.addEventListener('click', () => {
+    if (tbody.children.length === 0) return;
+    if (confirm('Remove all services from this release?')) tbody.innerHTML = '';
+  });
+
+  // ---- Export ----
+  function composeExportText() {
+    const release = releaseNameEl.value.trim() || '';
+    const lines = [];
+    const border = '#############';
+    lines.push(border, `# ${release} #`, border, '', 'Services:');
+
+    [...tbody.querySelectorAll('tr')].forEach(tr => {
+      const name = (tr.querySelector('.service-name')?.value || '').trim();
+      if (!name) return;
+
+      const cbs = [...tr.querySelectorAll('td.checkbox input[type="checkbox"]')];
+      let latest = { ts: 0, stage: null };
+      cbs.forEach((cb, idx) => {
+        if (cb.checked) {
+          const ts = Number(cb.dataset.ts || 0);
+          if (ts > latest.ts) latest = { ts, stage: STAGES[idx] };
+        }
+      });
+
+      if (latest.ts && latest.stage) {
+        lines.push(`* ${name} (${latest.stage} - ${formatTs(latest.ts)})`);
+      } else {
+        lines.push(`* ${name} (NOT STARTED)`);
+      }
+    });
+
+    lines.push('', 'Notes:');
+    lines.push(document.getElementById('notes').value || '');
+    return lines.join('\n');
+  }
+
+  function download(filename, text) {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safe = (filename || 'release').replace(/[^\w\-.]+/g, '_');
+    a.href = url;
+    a.download = `${safe}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+  saveBtn.addEventListener('click', () => {
+    const txt = composeExportText();
+    const name = (releaseNameEl.value.trim() || 'release');
+    download(`release-${name}`, txt);
+  });
+
+  // ---- Import (Load from file) ----
+  loadBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    try {
+      importFromText(text);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to load file. Please ensure it matches the exported format.');
+    } finally {
+      fileInput.value = ''; // reset for next load
+    }
+  });
+
+  function importFromText(text) {
+    const lines = text.split(/\r?\n/);
+
+    // 1) Release name: find the line starting with "# " and ending with " #"
+    const titleLine = lines.find(l => /^#\s.*\s#$/.test(l.trim()));
+    const releaseName = titleLine ? titleLine.trim().replace(/^#\s/, '').replace(/\s#$/, '') : '';
+    releaseNameEl.value = releaseName;
+
+    // 2) Services block: after "Services:" until "Notes:"
+    const servicesIdx = lines.findIndex(l => l.trim() === 'Services:');
+    const notesIdx = lines.findIndex(l => l.trim() === 'Notes:');
+    const serviceLines = (servicesIdx >= 0 && notesIdx > servicesIdx)
+      ? lines.slice(servicesIdx + 1, notesIdx)
+      : [];
+
+    // 3) Notes block: everything after "Notes:" (including blank lines)
+    const notesText = (notesIdx >= 0) ? lines.slice(notesIdx + 1).join('\n') : '';
+    document.getElementById('notes').value = notesText;
+
+    // Reset table
+    tbody.innerHTML = '';
+
+    // Helper: parse "* name (Stage - DD/MM/YYYY h:m)" OR "* name (NOT STARTED)"
+    serviceLines.forEach(raw => {
+      const line = raw.trim();
+      if (!line.startsWith('* ')) return;
+
+      // Extract name and bracket contents by last '(' ... ')' to tolerate names with parentheses
+      const open = line.lastIndexOf('(');
+      const close = line.endsWith(')') ? line.length - 1 : -1;
+      let name, bracket;
+      if (open !== -1 && close !== -1 && close > open) {
+        name = line.slice(2, open).trim().replace(/\s+$/, '');
+        bracket = line.slice(open + 1, close).trim();
+      } else {
+        name = line.slice(2).trim();
+        bracket = '';
+      }
+
+      // Create row
+      const tr = makeRow(name);
+      tbody.appendChild(tr);
+
+      // If NOT STARTED -> leave all unchecked
+      if (!bracket || /^NOT STARTED$/i.test(bracket)) return;
+
+      // Expect "Stage - DD/MM/YYYY h:m"
+      const sep = bracket.indexOf(' - ');
+      if (sep === -1) return; // malformed -> skip ticking
+      const stageName = bracket.slice(0, sep).trim();
+      const dateStr = bracket.slice(sep + 3).trim();
+      const ts = parseDateStr(dateStr);
+      if (!stageName || Number.isNaN(ts)) return; // malformed
+
+      const stageIdx = STAGES.indexOf(stageName);
+      if (stageIdx === -1) return; // unknown stage
+
+      // Tick all checkboxes up to and including stageIdx, set same timestamp for each
+      const cbs = [...tr.querySelectorAll('td.checkbox input[type="checkbox"]')];
+      for (let i = 0; i <= stageIdx && i < cbs.length; i++) {
+        cbs[i].checked = true;
+        cbs[i].dataset.ts = String(ts);
+      }
+    });
+
+    // If no services were parsed, keep one empty row for UX
+    if (tbody.children.length === 0) tbody.appendChild(makeRow(''));
+  }
+
+  // Seed an empty row initially
+  tbody.appendChild(makeRow(''));
+})();
+</script>
+</body>
+</html>
