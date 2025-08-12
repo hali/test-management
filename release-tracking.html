@@ -192,38 +192,48 @@
     if (confirm('Remove all services from this release?')) tbody.innerHTML = '';
   });
 
+  // Helper: get rightmost checked stage using cell indexes (col 1..STAGES.length)
+  function getRightmostCheckedStageIndex(tr) {
+    const cells = tr.cells; // live HTMLCollection in true left→right order
+    let last = -1;
+    for (let i = 1; i <= STAGES.length; i++) { // skip col 0 (service name)
+      const cb = cells[i]?.querySelector('input[type="checkbox"]');
+      if (cb && cb.checked) last = i - 1; // map cell index → stage index
+    }
+    return last; // -1 if none checked
+  }
+  
   // ---- Export ----
   function composeExportText() {
-  const release = document.getElementById('releaseName').value.trim() || '';
-  const lines = [];
-  const border = '#############';
-  lines.push(border, `# ${release} #`, border, '', 'Services:');
-
-  // For each row: choose the RIGHTMOST checked stage (highest column index)
-  [...document.querySelectorAll('#tbody tr')].forEach(tr => {
-    const name = (tr.querySelector('.service-name')?.value || '').trim();
-    if (!name) return;
-
-    const cbs = [...tr.querySelectorAll('td.checkbox input[type="checkbox"]')];
-    // find last (rightmost) checked checkbox
-    let lastIdx = -1;
-    for (let i = cbs.length - 1; i >= 0; i--) {
-      if (cbs[i].checked) { lastIdx = i; break; }
-    }
-
-    if (lastIdx === -1) {
-      lines.push(`* ${name} (NOT STARTED)`);
-    } else {
-      const stageName = STAGES[lastIdx];
-      let ts = Number(cbs[lastIdx].dataset.ts || 0);
-      if (!ts) {
-        // If no timestamp recorded for that cell, set one now for consistency
-        ts = Date.now();
-        cbs[lastIdx].dataset.ts = String(ts);
+    const release = document.getElementById('releaseName').value.trim() || '';
+    const lines = [];
+    const border = '#############';
+    lines.push(border, `# ${release} #`, border, '', 'Services:');
+  
+    [...document.querySelectorAll('#tbody tr')].forEach(tr => {
+      const name = (tr.querySelector('.service-name')?.value || '').trim();
+      if (!name) return;
+  
+      const lastIdx = getRightmostCheckedStageIndex(tr);
+  
+      if (lastIdx === -1) {
+        lines.push(`* ${name} (NOT STARTED)`);
+      } else {
+        const stageName = STAGES[lastIdx];
+        const cb = tr.cells[lastIdx + 1].querySelector('input[type="checkbox"]');
+        let ts = Number(cb.dataset.ts || 0);
+        if (!ts) { // if somehow missing, stamp it now for consistency
+          ts = Date.now();
+          cb.dataset.ts = String(ts);
+        }
+        lines.push(`* ${name} (${stageName} - ${formatTs(ts)})`);
       }
-      lines.push(`* ${name} (${stageName} - ${formatTs(ts)})`);
-    }
-  });
+    });
+  
+    lines.push('', 'Notes:');
+    lines.push(document.getElementById('notes').value || '');
+    return lines.join('\n');
+  }
 
   lines.push('', 'Notes:');
   lines.push(document.getElementById('notes').value || '');
