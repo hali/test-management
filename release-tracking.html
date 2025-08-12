@@ -194,35 +194,41 @@
 
   // ---- Export ----
   function composeExportText() {
-    const release = releaseNameEl.value.trim() || '';
-    const lines = [];
-    const border = '#############';
-    lines.push(border, `# ${release} #`, border, '', 'Services:');
+  const release = document.getElementById('releaseName').value.trim() || '';
+  const lines = [];
+  const border = '#############';
+  lines.push(border, `# ${release} #`, border, '', 'Services:');
 
-    [...tbody.querySelectorAll('tr')].forEach(tr => {
-      const name = (tr.querySelector('.service-name')?.value || '').trim();
-      if (!name) return;
+  // For each row: choose the RIGHTMOST checked stage (highest column index)
+  [...document.querySelectorAll('#tbody tr')].forEach(tr => {
+    const name = (tr.querySelector('.service-name')?.value || '').trim();
+    if (!name) return;
 
-      const cbs = [...tr.querySelectorAll('td.checkbox input[type="checkbox"]')];
-      let latest = { ts: 0, stage: null };
-      cbs.forEach((cb, idx) => {
-        if (cb.checked) {
-          const ts = Number(cb.dataset.ts || 0);
-          if (ts > latest.ts) latest = { ts, stage: STAGES[idx] };
-        }
-      });
+    const cbs = [...tr.querySelectorAll('td.checkbox input[type="checkbox"]')];
+    // find last (rightmost) checked checkbox
+    let lastIdx = -1;
+    for (let i = cbs.length - 1; i >= 0; i--) {
+      if (cbs[i].checked) { lastIdx = i; break; }
+    }
 
-      if (latest.ts && latest.stage) {
-        lines.push(`* ${name} (${latest.stage} - ${formatTs(latest.ts)})`);
-      } else {
-        lines.push(`* ${name} (NOT STARTED)`);
+    if (lastIdx === -1) {
+      lines.push(`* ${name} (NOT STARTED)`);
+    } else {
+      const stageName = STAGES[lastIdx];
+      let ts = Number(cbs[lastIdx].dataset.ts || 0);
+      if (!ts) {
+        // If no timestamp recorded for that cell, set one now for consistency
+        ts = Date.now();
+        cbs[lastIdx].dataset.ts = String(ts);
       }
-    });
+      lines.push(`* ${name} (${stageName} - ${formatTs(ts)})`);
+    }
+  });
 
-    lines.push('', 'Notes:');
-    lines.push(document.getElementById('notes').value || '');
-    return lines.join('\n');
-  }
+  lines.push('', 'Notes:');
+  lines.push(document.getElementById('notes').value || '');
+  return lines.join('\n');
+}
 
   function download(filename, text) {
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
