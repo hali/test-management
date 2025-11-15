@@ -10,9 +10,7 @@
     --panel:#171a21;
     --muted:#9aa4af;
     --text:#e8eef2;
-    --accent:#7bd389;
     --accent-2:#5aa2f6;
-    --danger:#f06a6a;
     --border:#2a2f3a;
     --input:#1f2430;
   }
@@ -82,7 +80,6 @@
     transition:transform .02s ease,border-color .2s ease,background .15s ease;
     min-width:0;
   }
-  /* Neutralize special colors: all buttons look the same */
   button.primary,
   button.success,
   button.danger{
@@ -132,6 +129,15 @@
   tbody tr:hover td{
     background:#141a26;
   }
+
+  /* Highlight: orange (not in PRD yet), green (PRD deployed) */
+  tbody tr.dep-target-not-prd td{
+    background:#3a2813;
+  }
+  tbody tr.dep-target-prd td{
+    background:#163421;
+  }
+
   .service-cell{
     display:block;
   }
@@ -180,6 +186,25 @@
     flex-wrap:nowrap;
     align-items:center;
     justify-content:flex-start;
+  }
+
+  /* Status dot column */
+  .status-cell{
+    text-align:center;
+    width:32px;
+  }
+  .status-dot{
+    display:inline-block;
+    width:12px;
+    height:12px;
+    border-radius:999px;
+    background:#402020;
+  }
+  .dot-green{
+    background:#19c25f;
+  }
+  .dot-red{
+    background:#c23b19;
   }
 
   .link-panel{
@@ -244,6 +269,11 @@
           aria-label="Clear all services"
         >🧹</button>
         <button
+          id="sortBtn"
+          title="Order services by dependencies"
+          aria-label="Order services by dependencies"
+        >⬇️</button>
+        <button
           id="loadBtn"
           title="Load from file"
           aria-label="Load from file"
@@ -262,8 +292,9 @@
       <table id="servicesTable" aria-label="Services release stages">
         <thead>
           <tr>
-            <th style="width:350px;">Service</th>
-            <th>TST signed off</th>
+            <th style="width:32px;"></th>
+            <th style="width:260px;">Service</th>
+            <th style="width:260px;">Depends on</th>
             <th>RC cut</th>
             <th>STG deploy</th>
             <th>STG signed off</th>
@@ -289,19 +320,21 @@
 
 <script>
 (() => {
+  // Remaining stages (TST removed)
   const STAGES = [
-    "TST signed off",
     "RC cut",
     "STG deploy",
     "STG signed off",
     "PRD deploy",
     "Done"
   ];
+  const STAGE_START_COL = 3; // columns: 0=status,1=service,2=depends,3+=stages
 
   const releaseNameEl = document.getElementById('releaseName');
   const serviceInputEl = document.getElementById('serviceInput');
   const addServiceBtn = document.getElementById('addServiceBtn');
   const clearAllBtn = document.getElementById('clearAllBtn');
+  const sortBtn = document.getElementById('sortBtn');
   const saveBtn = document.getElementById('saveBtn');
   const loadBtn = document.getElementById('loadBtn');
   const fileInput = document.getElementById('fileInput');
@@ -415,6 +448,29 @@
     return new Date(Number(yyyy), Number(MM)-1, Number(dd), Number(hh), Number(mm), 0, 0).getTime();
   }
 
+  // Dependency match helper:
+  // token matches service name if:
+  // - serviceName contains token at position 0 or after a space
+  // - and is followed by end-of-string, space, or '('
+  function dependencyMatchesService(depToken, serviceName) {
+    const needle = depToken.trim().toLowerCase();
+    const hay = serviceName.trim().toLowerCase();
+    if (!needle || !hay) return false;
+
+    let idx = hay.indexOf(needle);
+    while (idx !== -1) {
+      const beforeOk = (idx === 0) || hay[idx - 1] === ' ';
+      const afterIdx = idx + needle.length;
+      const afterChar = hay[afterIdx] || '';
+      const afterOk = afterIdx === hay.length || afterChar === ' ' || afterChar === '(';
+
+      if (beforeOk && afterOk) return true;
+
+      idx = hay.indexOf(needle, idx + 1);
+    }
+    return false;
+  }
+
   function makeCheckbox(stage, serviceName='') {
     const td = document.createElement('td');
     td.className = 'checkbox';
@@ -427,15 +483,151 @@
       } else {
         delete cb.dataset.ts;
       }
+      recomputeDependencyState();
     });
     td.appendChild(cb);
     return td;
   }
 
-  // Row: [Service][stage1]..[stage6][Actions]
+  function recomputeDependencyState() {
+    const rows = [...tbody.querySelectorAll('tr')];
+
+    // Clear existing highlights
+    rows.forEach(tr => {
+      tr.classList.remove('dep-target-not-prd', 'dep-target-prd');
+    });
+
+    if (rows.length === 0) return;
+
+    const prdIndex = STAGES.indexOf('PRD deploy');
+
+    // Build service list
+    const services = rows.map(tr => {
+      const input = tr.querySelector('.service-name');
+      const name = input ? input.value.trim() : '';
+      let prdChecked = false;
+      if (prdIndex !== -1) {
+        const cellIndex = STAGE_START_COL + prdIndex;
+        const cb = tr.cells[cellIndex]?.querySelector('input[type="checkbox"]');
+        prdChecked = !!(cb && cb.checked);
+      }
+      return { tr, name, prdChecked };
+    }).filter(x => x.name);
+
+    if (!services.length) {
+      // still recompute dots (all will be considered as "no deps", so green)
+      rows.forEach(tr => {
+        const dot = tr._statusDot || tr.querySelector('.status-dot');
+        if (!dot) return;
+        dot.classList.remove('dot-red');
+        dot.classList.add('dot-green');
+      });
+      return;
+    }
+
+    const highlightState = new Map(); // tr -> 'orange' | 'green'
+
+    // For each row with dependencies, mark targets for highlight
+    rows.forEach(tr => {
+      const depInput = tr._dependsInput || tr.querySelector('.depends-input');
+      if (!depInput) return;
+      const raw = depInput.value.trim();
+      if (!raw) return;
+
+      const tokens = raw.split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (!tokens.length) return;
+
+      tokens.forEach(token => {
+        services.forEach(({ tr: targetTr, name, prdChecked }) => {
+          if (!name) return;
+          if (targetTr === tr) return;
+          if (dependencyMatchesService(token, name)) {
+            const color = prdChecked ? 'green' : 'orange';
+            const prev = highlightState.get(targetTr);
+            // Green wins over orange if conflicting
+            if (!prev || (prev === 'orange' && color === 'green')) {
+              highlightState.set(targetTr, color);
+            }
+          }
+        });
+      });
+    });
+
+    // Apply row highlight classes
+    highlightState.forEach((color, tr) => {
+      if (color === 'green') {
+        tr.classList.add('dep-target-prd');
+      } else {
+        tr.classList.add('dep-target-not-prd');
+      }
+    });
+
+    // Recompute status dots (per row)
+    rows.forEach(tr => {
+      const dot = tr._statusDot || tr.querySelector('.status-dot');
+      if (!dot) return;
+
+      const depInput = tr._dependsInput || tr.querySelector('.depends-input');
+      const depRaw = depInput ? depInput.value.trim() : '';
+      if (!depRaw) {
+        // no dependencies => green
+        dot.classList.remove('dot-red');
+        dot.classList.add('dot-green');
+        return;
+      }
+
+      const tokens = depRaw.split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (!tokens.length) {
+        dot.classList.remove('dot-red');
+        dot.classList.add('dot-green');
+        return;
+      }
+
+      let anyMatch = false;
+      let allMatchedArePrd = true;
+
+      tokens.forEach(token => {
+        services.forEach(({ name, prdChecked }) => {
+          if (!name) return;
+          if (dependencyMatchesService(token, name)) {
+            anyMatch = true;
+            if (!prdChecked) {
+              allMatchedArePrd = false;
+            }
+          }
+        });
+      });
+
+      const isGreen =
+        !tokens.length        // should already be false here
+        || !anyMatch          // deps exist but none are in table => treat as satisfied
+        || allMatchedArePrd;  // all internal deps in PRD
+
+      dot.classList.toggle('dot-green', isGreen);
+      dot.classList.toggle('dot-red', !isGreen);
+    });
+  }
+
+  // Row: [Status][Service][Depends on][stage1..n][Actions]
   function makeRow(serviceName='') {
     const tr = document.createElement('tr');
 
+    // Status dot
+    const tdStatus = document.createElement('td');
+    tdStatus.className = 'status-cell';
+    const dot = document.createElement('span');
+    dot.className = 'status-dot dot-green';
+    tdStatus.appendChild(dot);
+    tr.appendChild(tdStatus);
+    tr._statusDot = dot;
+
+    // Service
     const tdService = document.createElement('td');
     tdService.className = 'service-cell';
     const input = document.createElement('input');
@@ -444,11 +636,26 @@
     input.value = serviceName;
     input.placeholder = 'service-name';
     input.setAttribute('aria-label', 'Service name');
+    input.addEventListener('input', recomputeDependencyState);
     tdService.appendChild(input);
     tr.appendChild(tdService);
 
+    // Depends on
+    const tdDepends = document.createElement('td');
+    const depInput = document.createElement('input');
+    depInput.type = 'text';
+    depInput.className = 'depends-input';
+    depInput.placeholder = 'core-service, auth';
+    depInput.setAttribute('aria-label', 'Depends on services');
+    depInput.addEventListener('input', recomputeDependencyState);
+    tdDepends.appendChild(depInput);
+    tr.appendChild(tdDepends);
+    tr._dependsInput = depInput;
+
+    // Stages
     STAGES.forEach(stage => tr.appendChild(makeCheckbox(stage, serviceName)));
 
+    // Actions
     const tdActions = document.createElement('td');
     tdActions.className = 'actions-cell';
 
@@ -482,7 +689,10 @@
     removeBtn.textContent = '🗑️';
     removeBtn.title = 'Remove service';
     removeBtn.setAttribute('aria-label', 'Remove service');
-    removeBtn.addEventListener('click', () => tr.remove());
+    removeBtn.addEventListener('click', () => {
+      tr.remove();
+      recomputeDependencyState();
+    });
 
     tr._openLinkBtn = openLinkBtn;
 
@@ -498,26 +708,118 @@
   function addService() {
     const name = serviceInputEl.value.trim();
     if (!name) return;
-    tbody.appendChild(makeRow(name));
+    const tr = makeRow(name);
+    tbody.appendChild(tr);
     serviceInputEl.value = '';
     serviceInputEl.focus();
+    recomputeDependencyState();
   }
+
   addServiceBtn.addEventListener('click', addService);
+
   serviceInputEl.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); addService(); }
-  });
-  clearAllBtn.addEventListener('click', () => {
-    if (tbody.children.length === 0) return;
-    if (confirm('Remove all services from this release?')) tbody.innerHTML = '';
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addService();
+    }
   });
 
-  // Helper: get rightmost checked stage using cell indexes (col 1..STAGES.length)
+  clearAllBtn.addEventListener('click', () => {
+    if (tbody.children.length === 0) return;
+    if (confirm('Remove all services from this release?')) {
+      tbody.innerHTML = '';
+      recomputeDependencyState();
+    }
+  });
+
+  // ---- Sort by dependency order ----
+  function sortServicesByDependencies() {
+    const rows = [...tbody.querySelectorAll('tr')];
+    if (rows.length <= 1) return;
+
+    const nodes = rows.map((tr) => {
+      const name = tr.querySelector('.service-name')?.value.trim() || '';
+      const depInput = tr._dependsInput || tr.querySelector('.depends-input');
+      const depRaw = depInput ? depInput.value.trim() : '';
+      const depTokens = depRaw.split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+      return { tr, name, depTokens };
+    });
+
+    const n = nodes.length;
+    const adj = Array.from({ length: n }, () => []);
+    const indeg = Array(n).fill(0);
+    let hasInternalDeps = false;
+
+    // Build edges: dependency -> dependent
+    nodes.forEach((node, i) => {
+      node.depTokens.forEach(tok => {
+        nodes.forEach((targetNode, j) => {
+          if (!targetNode.name) return;
+          if (i === j) return;
+          if (dependencyMatchesService(tok, targetNode.name)) {
+            adj[j].push(i);
+            indeg[i]++;
+            hasInternalDeps = true;
+          }
+        });
+      });
+    });
+
+    if (!hasInternalDeps) {
+      // No internal deps at all: do nothing
+      return;
+    }
+
+    const result = [];
+    const visited = Array(n).fill(false);
+    const queue = [];
+
+    // Start with nodes with indegree 0 in current order
+    for (let i = 0; i < n; i++) {
+      if (indeg[i] === 0) queue.push(i);
+    }
+
+    while (queue.length) {
+      const i = queue.shift();
+      if (visited[i]) continue;
+      visited[i] = true;
+      result.push(nodes[i]);
+      adj[i].forEach(j => {
+        indeg[j]--;
+        if (indeg[j] === 0) queue.push(j);
+      });
+    }
+
+    // In case of cycles, append remaining in original order
+    if (result.length < n) {
+      for (let i = 0; i < n; i++) {
+        if (!visited[i]) {
+          result.push(nodes[i]);
+        }
+      }
+    }
+
+    const frag = document.createDocumentFragment();
+    result.forEach(node => frag.appendChild(node.tr));
+    tbody.innerHTML = '';
+    tbody.appendChild(frag);
+
+    recomputeDependencyState();
+  }
+
+  sortBtn.addEventListener('click', sortServicesByDependencies);
+
+  // Helper: get rightmost checked stage using cell indexes (after status/service/depends)
   function getRightmostCheckedStageIndex(tr) {
     const cells = tr.cells;
     let last = -1;
-    for (let i = 1; i <= STAGES.length; i++) {
-      const cb = cells[i]?.querySelector('input[type="checkbox"]');
-      if (cb && cb.checked) last = i - 1;
+    // stages start at STAGE_START_COL
+    for (let i = 0; i < STAGES.length; i++) {
+      const cellIndex = STAGE_START_COL + i;
+      const cb = cells[cellIndex]?.querySelector('input[type="checkbox"]');
+      if (cb && cb.checked) last = i;
     }
     return last; // -1 if none checked
   }
@@ -535,13 +837,15 @@
 
       const lastIdx = getRightmostCheckedStageIndex(tr);
       const link = (tr.dataset.link || '').trim();
+      const deps = (tr._dependsInput?.value || tr.querySelector('.depends-input')?.value || '').trim();
       let line;
 
       if (lastIdx === -1) {
         line = `* ${name} (NOT STARTED)`;
       } else {
         const stageName = STAGES[lastIdx];
-        const cb = tr.cells[lastIdx + 1].querySelector('input[type="checkbox"]');
+        const cbCellIndex = STAGE_START_COL + lastIdx;
+        const cb = tr.cells[cbCellIndex].querySelector('input[type="checkbox"]');
         let ts = Number(cb.dataset.ts || 0);
         if (!ts) {
           ts = Date.now();
@@ -550,8 +854,11 @@
         line = `* ${name} (${stageName} - ${formatTs(ts)})`;
       }
 
-      if (link) {
-        line += ` | link: ${link}`;
+      const extras = [];
+      if (link) extras.push(`link: ${link}`);
+      if (deps) extras.push(`deps: ${deps}`);
+      if (extras.length) {
+        line += ' | ' + extras.join(' | ');
       }
 
       lines.push(line);
@@ -583,6 +890,7 @@
 
   // ---- Import (Load from file) ----
   loadBtn.addEventListener('click', () => fileInput.click());
+
   fileInput.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -619,24 +927,30 @@
     // Reset table
     tbody.innerHTML = '';
 
-    // Parse each service line:
-    // "* name (Stage - DD/MM/YYYY h:m)" OR "* name (NOT STARTED)"
-    // optionally followed by " | link: URL"
     serviceLines.forEach(raw => {
       const full = raw.trim();
       if (!full.startsWith('* ')) return;
 
-      // Split out optional "| link: URL"
       let line = full;
       let link = '';
+      let depsText = '';
+
+      // Split out optional " | ..." segments
       const pipeIdx = full.indexOf('|');
       if (pipeIdx !== -1) {
-        line = full.slice(0, pipeIdx).trim(); // "* name (Stage - date)"
-        const after = full.slice(pipeIdx + 1).trim(); // "link: URL" maybe
-        const mLink = after.match(/^link:\s*(.+)$/i);
-        if (mLink) {
-          link = mLink[1].trim();
-        }
+        line = full.slice(0, pipeIdx).trim(); // "* name (Stage - date)" or "* name (NOT STARTED)"
+        const after = full.slice(pipeIdx + 1).trim(); // e.g. "link: URL | deps: foo, bar"
+        const segments = after.split('|').map(s => s.trim());
+        segments.forEach(seg => {
+          const mLink = seg.match(/^link:\s*(.+)$/i);
+          if (mLink) {
+            link = mLink[1].trim();
+          }
+          const mDeps = seg.match(/^deps:\s*(.+)$/i);
+          if (mDeps) {
+            depsText = mDeps[1].trim();
+          }
+        });
       }
 
       // Extract name + bracket from main part
@@ -657,6 +971,9 @@
         if (tr._openLinkBtn) {
           tr._openLinkBtn.disabled = false;
         }
+      }
+      if (depsText && tr._dependsInput) {
+        tr._dependsInput.value = depsText;
       }
       tbody.appendChild(tr);
 
@@ -682,10 +999,12 @@
     });
 
     if (tbody.children.length === 0) tbody.appendChild(makeRow(''));
+    recomputeDependencyState();
   }
 
   // Seed an empty row initially
   tbody.appendChild(makeRow(''));
+  recomputeDependencyState();
 })();
 </script>
 </body>
