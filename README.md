@@ -14,6 +14,8 @@ Each row represents one service and its deployment stages. The tool also lets yo
 1. Save the HTML file (for example: `release-tracking.html`).
 2. Open it in any modern web browser.
 
+Alternatively, you can use the copy hosted in GitHub pages that always has the latest version: https://hali.github.io/test-management/release-tracking.html
+
 ### Adding services and dependencies
 
 - Use the **“Add service”** input and **➕** button (or press **Enter** in that input) to add a new service row.
