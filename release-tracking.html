@@ -5,36 +5,213 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Release Tracker</title>
 <style>
-  :root { --bg:#0f1115; --panel:#171a21; --muted:#9aa4af; --text:#e8eef2; --accent:#7bd389; --accent-2:#5aa2f6; --danger:#f06a6a; --border:#2a2f3a; --input:#1f2430; }
+  :root {
+    --bg:#0f1115;
+    --panel:#171a21;
+    --muted:#9aa4af;
+    --text:#e8eef2;
+    --accent:#7bd389;
+    --accent-2:#5aa2f6;
+    --danger:#f06a6a;
+    --border:#2a2f3a;
+    --input:#1f2430;
+  }
   *{box-sizing:border-box}
-  body{margin:0;padding:24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:var(--bg);color:var(--text)}
-  h1{margin:0 0 16px;font-size:20px;font-weight:700}
-  .app{max-width:none;width: calc(100% - 40px);margin:0 auto;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-  label{font-size:13px;color:var(--muted)}
-  input[type="text"],textarea{width:100%;background:var(--input);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;outline:none}
-  input[type="text"]:focus,textarea:focus{border-color:var(--accent-2)}
-  .field{flex:1 1 320px}
-  .controls{display:flex;gap:10px;align-items:end}
-  button{border:1px solid var(--border);background:#1d2330;color:var(--text);padding:10px 14px;border-radius:10px;cursor:pointer;font-size:14px;transition:transform .02s ease,border-color .2s ease}
-  button.primary{background:var(--accent-2);border-color:transparent;color:#fff}
-  button.success{background:var(--accent);border-color:transparent;color:#0b1a0f}
-  button.danger{background:var(--danger);border-color:transparent;color:#1b0000}
-  button:active{transform:translateY(1px)}
-  .table-wrap{margin-top:18px;overflow:auto;border:1px solid var(--border);border-radius:12px}
-  table{width:100%;border-collapse:separate;border-spacing:0;min-width:980px;background:#121621;table-layout:fixed}
-  thead th{position:sticky;top:0;z-index:1;background:#161b27;color:#cfd8e3;text-align:left;font-weight:600;padding:12px;border-bottom:1px solid var(--border);font-size:13px}
-  tbody td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:14px}
-  tbody tr:hover td{background:#141a26}
-  .service-cell{display:block}
-  .service-name{width:100%;background:transparent;border:none;color:var(--text);font-size:14px;padding:6px 8px;border-radius:8px;outline:none}
-  .service-name:focus{background:#141a20;border:1px solid var(--accent-2)}
-  .checkbox{text-align:center}
-  .checkbox input{width:18px;height:18px}
-  .notes{margin-top:16px}
-  .notes textarea{height:140px;resize:vertical}
-  .footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
-  .hint{color:var(--muted);font-size:12px}
+  body{
+    margin:0;
+    padding:24px;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+  h1{
+    margin:0 0 16px;
+    font-size:20px;
+    font-weight:700;
+  }
+  .app{
+    max-width:none;
+    width: calc(100% - 40px);
+    margin:0 auto;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:18px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  .row{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  label{
+    font-size:13px;
+    color:var(--muted);
+  }
+  input[type="text"],textarea{
+    width:100%;
+    background:var(--input);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:14px;
+    outline:none;
+  }
+  input[type="text"]:focus,textarea:focus{
+    border-color:var(--accent-2);
+  }
+  .field{
+    flex:1 1 320px;
+  }
+  .controls{
+    display:flex;
+    gap:6px;
+    align-items:end;
+    flex-wrap:nowrap;
+  }
+  button{
+    border:1px solid var(--border);
+    background:#1d2330;
+    color:var(--text);
+    padding:8px 10px;
+    border-radius:10px;
+    cursor:pointer;
+    font-size:14px;
+    transition:transform .02s ease,border-color .2s ease,background .15s ease;
+    min-width:0;
+  }
+  /* Neutralize special colors: all buttons look the same */
+  button.primary,
+  button.success,
+  button.danger{
+    background:#1d2330;
+    color:var(--text);
+    border:1px solid var(--border);
+  }
+  button:active{
+    transform:translateY(1px);
+  }
+  button:disabled{
+    opacity:0.45;
+    cursor:default;
+  }
+  .table-wrap{
+    margin-top:18px;
+    overflow:auto;
+    border:1px solid var(--border);
+    border-radius:12px;
+  }
+  table{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0;
+    min-width:980px;
+    background:#121621;
+    table-layout:fixed;
+  }
+  thead th{
+    position:sticky;
+    top:0;
+    z-index:1;
+    background:#161b27;
+    color:#cfd8e3;
+    text-align:left;
+    font-weight:600;
+    padding:12px;
+    border-bottom:1px solid var(--border);
+    font-size:13px;
+  }
+  tbody td{
+    padding:10px 12px;
+    border-bottom:1px solid var(--border);
+    vertical-align:middle;
+    font-size:14px;
+  }
+  tbody tr:hover td{
+    background:#141a26;
+  }
+  .service-cell{
+    display:block;
+  }
+  .service-name{
+    width:100%;
+    background:transparent;
+    border:none;
+    color:var(--text);
+    font-size:14px;
+    padding:6px 8px;
+    border-radius:8px;
+    outline:none;
+  }
+  .service-name:focus{
+    background:#141a20;
+    border:1px solid var(--accent-2);
+  }
+  .checkbox{
+    text-align:center;
+  }
+  .checkbox input{
+    width:18px;
+    height:18px;
+  }
+  .notes{
+    margin-top:16px;
+  }
+  .notes textarea{
+    height:140px;
+    resize:vertical;
+  }
+  .footer{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:14px;
+  }
+  .hint{
+    color:var(--muted);
+    font-size:12px;
+  }
+
+  .actions-cell{
+    display:flex;
+    gap:4px;
+    flex-wrap:nowrap;
+    align-items:center;
+    justify-content:flex-start;
+  }
+
+  .link-panel{
+    position:fixed;
+    right:24px;
+    bottom:24px;
+    min-width:320px;
+    max-width:420px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.6);
+    z-index:1000;
+  }
+  .link-panel.hidden{
+    display:none;
+  }
+  .link-panel-title{
+    font-size:14px;
+    font-weight:600;
+    margin-bottom:8px;
+  }
+  .link-panel input[type="text"]{
+    margin-top:4px;
+  }
+  .link-panel-buttons{
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+    margin-top:10px;
+  }
 </style>
 </head>
 <body>
@@ -54,10 +231,29 @@
         <input id="serviceInput" type="text" placeholder="e.g. user-profile-service"/>
       </div>
       <div class="controls">
-        <button id="addServiceBtn" class="primary">Add service</button>
-        <button id="clearAllBtn" class="danger" title="Remove all services">Clear all</button>
-        <button id="loadBtn">Load from file</button>
-        <button id="saveBtn" class="success">Save to .txt</button>
+        <button
+          id="addServiceBtn"
+          class="primary"
+          title="Add service"
+          aria-label="Add service"
+        >➕</button>
+        <button
+          id="clearAllBtn"
+          class="danger"
+          title="Clear all services"
+          aria-label="Clear all services"
+        >🧹</button>
+        <button
+          id="loadBtn"
+          title="Load from file"
+          aria-label="Load from file"
+        >📂</button>
+        <button
+          id="saveBtn"
+          class="success"
+          title="Save to .txt"
+          aria-label="Save to .txt"
+        >💾</button>
         <input id="fileInput" type="file" accept=".txt,text/plain" style="display:none"/>
       </div>
     </div>
@@ -73,7 +269,7 @@
             <th>STG signed off</th>
             <th>PRD deploy</th>
             <th>Done</th>
-            <th style="min-width:120px;">Actions</th>
+            <th style="min-width:160px;">Actions</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -111,16 +307,106 @@
   const fileInput = document.getElementById('fileInput');
   const tbody = document.getElementById('tbody');
 
+  // Link editor panel state
+  let linkPanel = null;
+  let linkInput = null;
+  let linkSaveBtn = null;
+  let linkCancelBtn = null;
+  let currentLinkRow = null;
+
+  function initLinkPanel() {
+    if (linkPanel) return;
+
+    linkPanel = document.createElement('div');
+    linkPanel.className = 'link-panel hidden';
+
+    const title = document.createElement('div');
+    title.className = 'link-panel-title';
+    title.textContent = 'Edit pipeline link';
+
+    linkInput = document.createElement('input');
+    linkInput.type = 'text';
+    linkInput.placeholder = 'https://pipeline.example.com/run/123';
+
+    const buttonsWrap = document.createElement('div');
+    buttonsWrap.className = 'link-panel-buttons';
+
+    linkCancelBtn = document.createElement('button');
+    linkCancelBtn.type = 'button';
+    linkCancelBtn.textContent = 'Cancel';
+
+    linkSaveBtn = document.createElement('button');
+    linkSaveBtn.type = 'button';
+    linkSaveBtn.textContent = 'Save';
+
+    buttonsWrap.appendChild(linkCancelBtn);
+    buttonsWrap.appendChild(linkSaveBtn);
+
+    linkPanel.appendChild(title);
+    linkPanel.appendChild(linkInput);
+    linkPanel.appendChild(buttonsWrap);
+
+    document.body.appendChild(linkPanel);
+
+    linkCancelBtn.addEventListener('click', hideLinkPanel);
+    linkSaveBtn.addEventListener('click', () => {
+      if (!currentLinkRow) {
+        hideLinkPanel();
+        return;
+      }
+      const url = linkInput.value.trim();
+      if (url) {
+        currentLinkRow.dataset.link = url;
+        if (currentLinkRow._openLinkBtn) {
+          currentLinkRow._openLinkBtn.disabled = false;
+        }
+      } else {
+        delete currentLinkRow.dataset.link;
+        if (currentLinkRow._openLinkBtn) {
+          currentLinkRow._openLinkBtn.disabled = true;
+        }
+      }
+      hideLinkPanel();
+    });
+
+    linkInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        linkSaveBtn.click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        hideLinkPanel();
+      }
+    });
+  }
+
+  function openLinkEditor(tr) {
+    initLinkPanel();
+    currentLinkRow = tr;
+    linkInput.value = tr.dataset.link || '';
+    linkPanel.classList.remove('hidden');
+    linkInput.focus();
+    linkInput.select();
+  }
+
+  function hideLinkPanel() {
+    if (linkPanel) {
+      linkPanel.classList.add('hidden');
+    }
+    currentLinkRow = null;
+  }
+
   // ---- Utilities ----
   function formatTs(ts) {
     const d = new Date(ts);
     const dd = String(d.getDate()).padStart(2,'0');
     const mm = String(d.getMonth()+1).padStart(2,'0');
     const yyyy = d.getFullYear();
-    const h = d.getHours();               // no leading zero
-    const m = String(d.getMinutes()).padStart(2,'0'); // zero-pad minutes
+    const h = d.getHours();
+    const m = String(d.getMinutes()).padStart(2,'0');
     return `${dd}/${mm}/${yyyy} ${h}:${m}`;
   }
+
   function parseDateStr(s) {
     // Expect DD/MM/YYYY h:m
     const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/);
@@ -164,11 +450,44 @@
     STAGES.forEach(stage => tr.appendChild(makeCheckbox(stage, serviceName)));
 
     const tdActions = document.createElement('td');
+    tdActions.className = 'actions-cell';
+
+    const editLinkBtn = document.createElement('button');
+    editLinkBtn.type = 'button';
+    editLinkBtn.textContent = '🔗';
+    editLinkBtn.title = 'Edit pipeline link';
+    editLinkBtn.setAttribute('aria-label', 'Edit pipeline link');
+    editLinkBtn.addEventListener('click', () => openLinkEditor(tr));
+
+    const openLinkBtn = document.createElement('button');
+    openLinkBtn.type = 'button';
+    openLinkBtn.textContent = '↗';
+    openLinkBtn.title = 'Open pipeline link';
+    openLinkBtn.setAttribute('aria-label', 'Open pipeline link');
+    openLinkBtn.disabled = true;
+    openLinkBtn.addEventListener('click', () => {
+      const raw = (tr.dataset.link || '').trim();
+      if (!raw) return;
+      const url = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
+      try {
+        window.open(url, '_blank', 'noopener');
+      } catch (err) {
+        console.error('Failed to open link', err);
+      }
+    });
+
     const removeBtn = document.createElement('button');
     removeBtn.className = 'danger';
     removeBtn.type = 'button';
-    removeBtn.textContent = 'Remove';
+    removeBtn.textContent = '🗑️';
+    removeBtn.title = 'Remove service';
+    removeBtn.setAttribute('aria-label', 'Remove service');
     removeBtn.addEventListener('click', () => tr.remove());
+
+    tr._openLinkBtn = openLinkBtn;
+
+    tdActions.appendChild(editLinkBtn);
+    tdActions.appendChild(openLinkBtn);
     tdActions.appendChild(removeBtn);
     tr.appendChild(tdActions);
 
@@ -194,42 +513,50 @@
 
   // Helper: get rightmost checked stage using cell indexes (col 1..STAGES.length)
   function getRightmostCheckedStageIndex(tr) {
-    const cells = tr.cells; // live HTMLCollection in true left→right order
+    const cells = tr.cells;
     let last = -1;
-    for (let i = 1; i <= STAGES.length; i++) { // skip col 0 (service name)
+    for (let i = 1; i <= STAGES.length; i++) {
       const cb = cells[i]?.querySelector('input[type="checkbox"]');
-      if (cb && cb.checked) last = i - 1; // map cell index → stage index
+      if (cb && cb.checked) last = i - 1;
     }
     return last; // -1 if none checked
   }
-  
+
   // ---- Export ----
   function composeExportText() {
     const release = document.getElementById('releaseName').value.trim() || '';
     const lines = [];
     const border = '#############';
     lines.push(border, `# ${release} #`, border, '', 'Services:');
-  
+
     [...document.querySelectorAll('#tbody tr')].forEach(tr => {
       const name = (tr.querySelector('.service-name')?.value || '').trim();
       if (!name) return;
-  
+
       const lastIdx = getRightmostCheckedStageIndex(tr);
-  
+      const link = (tr.dataset.link || '').trim();
+      let line;
+
       if (lastIdx === -1) {
-        lines.push(`* ${name} (NOT STARTED)`);
+        line = `* ${name} (NOT STARTED)`;
       } else {
         const stageName = STAGES[lastIdx];
         const cb = tr.cells[lastIdx + 1].querySelector('input[type="checkbox"]');
         let ts = Number(cb.dataset.ts || 0);
-        if (!ts) { // if somehow missing, stamp it now for consistency
+        if (!ts) {
           ts = Date.now();
           cb.dataset.ts = String(ts);
         }
-        lines.push(`* ${name} (${stageName} - ${formatTs(ts)})`);
+        line = `* ${name} (${stageName} - ${formatTs(ts)})`;
       }
+
+      if (link) {
+        line += ` | link: ${link}`;
+      }
+
+      lines.push(line);
     });
-  
+
     lines.push('', 'Notes:');
     lines.push(document.getElementById('notes').value || '');
     return lines.join('\n');
@@ -247,6 +574,7 @@
     a.remove();
     URL.revokeObjectURL(url);
   }
+
   saveBtn.addEventListener('click', () => {
     const txt = composeExportText();
     const name = (releaseNameEl.value.trim() || 'release');
@@ -265,40 +593,55 @@
       console.error(err);
       alert('Failed to load file. Please ensure it matches the exported format.');
     } finally {
-      fileInput.value = ''; // reset for next load
+      fileInput.value = '';
     }
   });
 
   function importFromText(text) {
     const lines = text.split(/\r?\n/);
 
-    // 1) Release name: find the line starting with "# " and ending with " #"
+    // 1) Release name
     const titleLine = lines.find(l => /^#\s.*\s#$/.test(l.trim()));
     const releaseName = titleLine ? titleLine.trim().replace(/^#\s/, '').replace(/\s#$/, '') : '';
     releaseNameEl.value = releaseName;
 
-    // 2) Services block: after "Services:" until "Notes:"
+    // 2) Services block
     const servicesIdx = lines.findIndex(l => l.trim() === 'Services:');
     const notesIdx = lines.findIndex(l => l.trim() === 'Notes:');
     const serviceLines = (servicesIdx >= 0 && notesIdx > servicesIdx)
       ? lines.slice(servicesIdx + 1, notesIdx)
       : [];
 
-    // 3) Notes block: everything after "Notes:" (including blank lines)
+    // 3) Notes
     const notesText = (notesIdx >= 0) ? lines.slice(notesIdx + 1).join('\n') : '';
     document.getElementById('notes').value = notesText;
 
     // Reset table
     tbody.innerHTML = '';
 
-    // Helper: parse "* name (Stage - DD/MM/YYYY h:m)" OR "* name (NOT STARTED)"
+    // Parse each service line:
+    // "* name (Stage - DD/MM/YYYY h:m)" OR "* name (NOT STARTED)"
+    // optionally followed by " | link: URL"
     serviceLines.forEach(raw => {
-      const line = raw.trim();
-      if (!line.startsWith('* ')) return;
+      const full = raw.trim();
+      if (!full.startsWith('* ')) return;
 
-      // Extract name and bracket contents by last '(' ... ')' to tolerate names with parentheses
+      // Split out optional "| link: URL"
+      let line = full;
+      let link = '';
+      const pipeIdx = full.indexOf('|');
+      if (pipeIdx !== -1) {
+        line = full.slice(0, pipeIdx).trim(); // "* name (Stage - date)"
+        const after = full.slice(pipeIdx + 1).trim(); // "link: URL" maybe
+        const mLink = after.match(/^link:\s*(.+)$/i);
+        if (mLink) {
+          link = mLink[1].trim();
+        }
+      }
+
+      // Extract name + bracket from main part
       const open = line.lastIndexOf('(');
-      const close = line.endsWith(')') ? line.length - 1 : -1;
+      const close = open !== -1 ? line.indexOf(')', open + 1) : -1;
       let name, bracket;
       if (open !== -1 && close !== -1 && close > open) {
         name = line.slice(2, open).trim().replace(/\s+$/, '');
@@ -308,8 +651,13 @@
         bracket = '';
       }
 
-      // Create row
       const tr = makeRow(name);
+      if (link) {
+        tr.dataset.link = link;
+        if (tr._openLinkBtn) {
+          tr._openLinkBtn.disabled = false;
+        }
+      }
       tbody.appendChild(tr);
 
       // If NOT STARTED -> leave all unchecked
@@ -317,16 +665,15 @@
 
       // Expect "Stage - DD/MM/YYYY h:m"
       const sep = bracket.indexOf(' - ');
-      if (sep === -1) return; // malformed -> skip ticking
+      if (sep === -1) return;
       const stageName = bracket.slice(0, sep).trim();
       const dateStr = bracket.slice(sep + 3).trim();
       const ts = parseDateStr(dateStr);
-      if (!stageName || Number.isNaN(ts)) return; // malformed
+      if (!stageName || Number.isNaN(ts)) return;
 
       const stageIdx = STAGES.indexOf(stageName);
-      if (stageIdx === -1) return; // unknown stage
+      if (stageIdx === -1) return;
 
-      // Tick all checkboxes up to and including stageIdx, set same timestamp for each
       const cbs = [...tr.querySelectorAll('td.checkbox input[type="checkbox"]')];
       for (let i = 0; i <= stageIdx && i < cbs.length; i++) {
         cbs[i].checked = true;
@@ -334,7 +681,6 @@
       }
     });
 
-    // If no services were parsed, keep one empty row for UX
     if (tbody.children.length === 0) tbody.appendChild(makeRow(''));
   }
 
