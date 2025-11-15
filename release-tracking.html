@@ -320,7 +320,6 @@
 
 <script>
 (() => {
-  // Remaining stages (TST removed)
   const STAGES = [
     "RC cut",
     "STG deploy",
@@ -328,7 +327,7 @@
     "PRD deploy",
     "Done"
   ];
-  const STAGE_START_COL = 3; // columns: 0=status,1=service,2=depends,3+=stages
+  const STAGE_START_COL = 3; // 0=status,1=service,2=depends,3+=stages
 
   const releaseNameEl = document.getElementById('releaseName');
   const serviceInputEl = document.getElementById('serviceInput');
@@ -340,7 +339,6 @@
   const fileInput = document.getElementById('fileInput');
   const tbody = document.getElementById('tbody');
 
-  // Link editor panel state
   let linkPanel = null;
   let linkInput = null;
   let linkSaveBtn = null;
@@ -429,7 +427,6 @@
     currentLinkRow = null;
   }
 
-  // ---- Utilities ----
   function formatTs(ts) {
     const d = new Date(ts);
     const dd = String(d.getDate()).padStart(2,'0');
@@ -441,17 +438,12 @@
   }
 
   function parseDateStr(s) {
-    // Expect DD/MM/YYYY h:m
     const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/);
     if (!m) return NaN;
     const [_, dd, MM, yyyy, hh, mm] = m;
     return new Date(Number(yyyy), Number(MM)-1, Number(dd), Number(hh), Number(mm), 0, 0).getTime();
   }
 
-  // Dependency match helper:
-  // token matches service name if:
-  // - serviceName contains token at position 0 or after a space
-  // - and is followed by end-of-string, space, or '('
   function dependencyMatchesService(depToken, serviceName) {
     const needle = depToken.trim().toLowerCase();
     const hay = serviceName.trim().toLowerCase();
@@ -492,7 +484,6 @@
   function recomputeDependencyState() {
     const rows = [...tbody.querySelectorAll('tr')];
 
-    // Clear existing highlights
     rows.forEach(tr => {
       tr.classList.remove('dep-target-not-prd', 'dep-target-prd');
     });
@@ -501,7 +492,6 @@
 
     const prdIndex = STAGES.indexOf('PRD deploy');
 
-    // Build service list
     const services = rows.map(tr => {
       const input = tr.querySelector('.service-name');
       const name = input ? input.value.trim() : '';
@@ -515,7 +505,6 @@
     }).filter(x => x.name);
 
     if (!services.length) {
-      // still recompute dots (all will be considered as "no deps", so green)
       rows.forEach(tr => {
         const dot = tr._statusDot || tr.querySelector('.status-dot');
         if (!dot) return;
@@ -525,9 +514,8 @@
       return;
     }
 
-    const highlightState = new Map(); // tr -> 'orange' | 'green'
+    const highlightState = new Map();
 
-    // For each row with dependencies, mark targets for highlight
     rows.forEach(tr => {
       const depInput = tr._dependsInput || tr.querySelector('.depends-input');
       if (!depInput) return;
@@ -547,7 +535,6 @@
           if (dependencyMatchesService(token, name)) {
             const color = prdChecked ? 'green' : 'orange';
             const prev = highlightState.get(targetTr);
-            // Green wins over orange if conflicting
             if (!prev || (prev === 'orange' && color === 'green')) {
               highlightState.set(targetTr, color);
             }
@@ -556,7 +543,6 @@
       });
     });
 
-    // Apply row highlight classes
     highlightState.forEach((color, tr) => {
       if (color === 'green') {
         tr.classList.add('dep-target-prd');
@@ -565,7 +551,6 @@
       }
     });
 
-    // Recompute status dots (per row)
     rows.forEach(tr => {
       const dot = tr._statusDot || tr.querySelector('.status-dot');
       if (!dot) return;
@@ -573,7 +558,6 @@
       const depInput = tr._dependsInput || tr.querySelector('.depends-input');
       const depRaw = depInput ? depInput.value.trim() : '';
       if (!depRaw) {
-        // no dependencies => green
         dot.classList.remove('dot-red');
         dot.classList.add('dot-green');
         return;
@@ -605,20 +589,18 @@
       });
 
       const isGreen =
-        !tokens.length        // should already be false here
-        || !anyMatch          // deps exist but none are in table => treat as satisfied
-        || allMatchedArePrd;  // all internal deps in PRD
+        !tokens.length ||
+        !anyMatch ||
+        allMatchedArePrd;
 
       dot.classList.toggle('dot-green', isGreen);
       dot.classList.toggle('dot-red', !isGreen);
     });
   }
 
-  // Row: [Status][Service][Depends on][stage1..n][Actions]
   function makeRow(serviceName='') {
     const tr = document.createElement('tr');
 
-    // Status dot
     const tdStatus = document.createElement('td');
     tdStatus.className = 'status-cell';
     const dot = document.createElement('span');
@@ -627,7 +609,6 @@
     tr.appendChild(tdStatus);
     tr._statusDot = dot;
 
-    // Service
     const tdService = document.createElement('td');
     tdService.className = 'service-cell';
     const input = document.createElement('input');
@@ -640,7 +621,6 @@
     tdService.appendChild(input);
     tr.appendChild(tdService);
 
-    // Depends on
     const tdDepends = document.createElement('td');
     const depInput = document.createElement('input');
     depInput.type = 'text';
@@ -652,10 +632,8 @@
     tr.appendChild(tdDepends);
     tr._dependsInput = depInput;
 
-    // Stages
     STAGES.forEach(stage => tr.appendChild(makeCheckbox(stage, serviceName)));
 
-    // Actions
     const tdActions = document.createElement('td');
     tdActions.className = 'actions-cell';
 
@@ -704,7 +682,6 @@
     return tr;
   }
 
-  // ---- Add / Clear ----
   function addService() {
     const name = serviceInputEl.value.trim();
     if (!name) return;
@@ -732,12 +709,13 @@
     }
   });
 
-  // ---- Sort by dependency order ----
+  // ---- Sort by dependency order, with alphabetical baseline ----
   function sortServicesByDependencies() {
     const rows = [...tbody.querySelectorAll('tr')];
     if (rows.length <= 1) return;
 
-    const nodes = rows.map((tr) => {
+    // Build node list
+    const baseNodes = rows.map((tr) => {
       const name = tr.querySelector('.service-name')?.value.trim() || '';
       const depInput = tr._dependsInput || tr.querySelector('.depends-input');
       const depRaw = depInput ? depInput.value.trim() : '';
@@ -747,12 +725,17 @@
       return { tr, name, depTokens };
     });
 
+    // Always start from alphabetical order
+    const nodes = [...baseNodes].sort((a, b) =>
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+    );
+
     const n = nodes.length;
     const adj = Array.from({ length: n }, () => []);
     const indeg = Array(n).fill(0);
     let hasInternalDeps = false;
 
-    // Build edges: dependency -> dependent
+    // Build edges: dependency -> dependent (indexes in `nodes`)
     nodes.forEach((node, i) => {
       node.depTokens.forEach(tok => {
         nodes.forEach((targetNode, j) => {
@@ -767,16 +750,21 @@
       });
     });
 
+    // If no internal dependencies, just enforce alphabetical order
     if (!hasInternalDeps) {
-      // No internal deps at all: do nothing
+      const frag = document.createDocumentFragment();
+      nodes.forEach(node => frag.appendChild(node.tr));
+      tbody.innerHTML = '';
+      tbody.appendChild(frag);
+      recomputeDependencyState();
       return;
     }
 
+    // Topological sort with alphabetical tie-breaking (because nodes is already sorted)
     const result = [];
     const visited = Array(n).fill(false);
     const queue = [];
 
-    // Start with nodes with indegree 0 in current order
     for (let i = 0; i < n; i++) {
       if (indeg[i] === 0) queue.push(i);
     }
@@ -792,7 +780,6 @@
       });
     }
 
-    // In case of cycles, append remaining in original order
     if (result.length < n) {
       for (let i = 0; i < n; i++) {
         if (!visited[i]) {
@@ -811,20 +798,17 @@
 
   sortBtn.addEventListener('click', sortServicesByDependencies);
 
-  // Helper: get rightmost checked stage using cell indexes (after status/service/depends)
   function getRightmostCheckedStageIndex(tr) {
     const cells = tr.cells;
     let last = -1;
-    // stages start at STAGE_START_COL
     for (let i = 0; i < STAGES.length; i++) {
       const cellIndex = STAGE_START_COL + i;
       const cb = cells[cellIndex]?.querySelector('input[type="checkbox"]');
       if (cb && cb.checked) last = i;
     }
-    return last; // -1 if none checked
+    return last;
   }
 
-  // ---- Export ----
   function composeExportText() {
     const release = document.getElementById('releaseName').value.trim() || '';
     const lines = [];
@@ -888,7 +872,6 @@
     download(`release-${name}`, txt);
   });
 
-  // ---- Import (Load from file) ----
   loadBtn.addEventListener('click', () => fileInput.click());
 
   fileInput.addEventListener('change', async (e) => {
@@ -908,23 +891,19 @@
   function importFromText(text) {
     const lines = text.split(/\r?\n/);
 
-    // 1) Release name
     const titleLine = lines.find(l => /^#\s.*\s#$/.test(l.trim()));
     const releaseName = titleLine ? titleLine.trim().replace(/^#\s/, '').replace(/\s#$/, '') : '';
     releaseNameEl.value = releaseName;
 
-    // 2) Services block
     const servicesIdx = lines.findIndex(l => l.trim() === 'Services:');
     const notesIdx = lines.findIndex(l => l.trim() === 'Notes:');
     const serviceLines = (servicesIdx >= 0 && notesIdx > servicesIdx)
       ? lines.slice(servicesIdx + 1, notesIdx)
       : [];
 
-    // 3) Notes
     const notesText = (notesIdx >= 0) ? lines.slice(notesIdx + 1).join('\n') : '';
     document.getElementById('notes').value = notesText;
 
-    // Reset table
     tbody.innerHTML = '';
 
     serviceLines.forEach(raw => {
@@ -935,11 +914,10 @@
       let link = '';
       let depsText = '';
 
-      // Split out optional " | ..." segments
       const pipeIdx = full.indexOf('|');
       if (pipeIdx !== -1) {
-        line = full.slice(0, pipeIdx).trim(); // "* name (Stage - date)" or "* name (NOT STARTED)"
-        const after = full.slice(pipeIdx + 1).trim(); // e.g. "link: URL | deps: foo, bar"
+        line = full.slice(0, pipeIdx).trim();
+        const after = full.slice(pipeIdx + 1).trim();
         const segments = after.split('|').map(s => s.trim());
         segments.forEach(seg => {
           const mLink = seg.match(/^link:\s*(.+)$/i);
@@ -953,7 +931,6 @@
         });
       }
 
-      // Extract name + bracket from main part
       const open = line.lastIndexOf('(');
       const close = open !== -1 ? line.indexOf(')', open + 1) : -1;
       let name, bracket;
@@ -977,10 +954,8 @@
       }
       tbody.appendChild(tr);
 
-      // If NOT STARTED -> leave all unchecked
       if (!bracket || /^NOT STARTED$/i.test(bracket)) return;
 
-      // Expect "Stage - DD/MM/YYYY h:m"
       const sep = bracket.indexOf(' - ');
       if (sep === -1) return;
       const stageName = bracket.slice(0, sep).trim();
@@ -1002,7 +977,6 @@
     recomputeDependencyState();
   }
 
-  // Seed an empty row initially
   tbody.appendChild(makeRow(''));
   recomputeDependencyState();
 })();
